@@ -1,0 +1,21 @@
+name: NeaFutbol
+version: 1.1.4
+main: com.jeronea.neafutbol.NeaFutbol
+api-version: 1.20
+authors: [Nea#9654]
+description: Un plugin de fútbol completo para minijuegos en el lobby.
+
+commands:
+  neafutbol:
+    description: Comando principal de NeaFutbol
+    usage: /neafutbol <subcomando>
+    aliases: [nf, futbol]
+    permission: neafutbol.use
+
+permissions:
+  neafutbol.admin:
+    description: Permite acceso administrativo para configurar y forzar el inicio/parada de juegos
+    default: op
+  neafutbol.join:
+    description: Permite unirse al juego mediante comando (usado por consola o jugadores)
+    default: true

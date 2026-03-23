@@ -1,0 +1,25 @@
+game:
+  min-players: 2
+  max-players: 4
+  duration-seconds: 300
+  countdown-seconds: 60
+  goal-radius: 2.0
+  team-armor: true
+
+ball:
+  skin: "MHF_CoconutB"
+  y-modifier: -0.5
+  hitbox-range: 3.5
+  kick-power: 1.2
+  kick-height: 0.6
+  pass-power: 1.2
+
+locations:
+  team1: null
+  team2: null
+  ball: null
+  lobby: null
+  goal1: null
+  goal2: null
+  hologram: null
+  field: null
