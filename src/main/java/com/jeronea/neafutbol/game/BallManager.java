@@ -5,8 +5,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -30,8 +32,11 @@ public class BallManager {
     private Team teamBlue;
     private Team teamRed;
 
+    private final NamespacedKey ballKey;
+
     public BallManager(NeaFutbol plugin) {
         this.plugin = plugin;
+        this.ballKey = new NamespacedKey(plugin, "ball_entity");
         setupTeams();
     }
 
@@ -68,7 +73,9 @@ public class BallManager {
         physicsEntity.setCustomName("NeaBallPhysics");
         physicsEntity.setCustomNameVisible(false);
         physicsEntity.setInvulnerable(true);
+        physicsEntity.setPersistent(false);
         physicsEntity.addScoreboardTag("NeaBall");
+        physicsEntity.getPersistentDataContainer().set(ballKey, PersistentDataType.BYTE, (byte) 1);
 
         // 2. Visual Entity (Cabeza Rotatoria)
         visualEntity = (ArmorStand) spawnLoc
@@ -83,7 +90,9 @@ public class BallManager {
         visualEntity.setCustomName("NeaBallVisual");
         visualEntity.setCustomNameVisible(false);
         visualEntity.setInvulnerable(true);
+        visualEntity.setPersistent(false);
         visualEntity.addScoreboardTag("NeaBall");
+        visualEntity.getPersistentDataContainer().set(ballKey, PersistentDataType.BYTE, (byte) 1);
 
         // Configurar Cabeza en la entidad Visual
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -198,16 +207,20 @@ public class BallManager {
         cleanOrphanedBallEntities();
     }
 
-    private void cleanOrphanedBallEntities() {
-        Bukkit.getWorlds().forEach(world -> {
-            world
-                .getEntitiesByClass(ArmorStand.class)
-                .forEach(as -> {
-                    if (as.getScoreboardTags().contains("NeaBall")) {
-                        as.remove();
-                    }
-                });
-        });
+    public int cleanOrphanedBallEntities() {
+        int count = 0;
+        for (org.bukkit.World world : Bukkit.getWorlds()) {
+            for (ArmorStand as : world.getEntitiesByClass(ArmorStand.class)) {
+                if (as.getScoreboardTags().contains("NeaBall") ||
+                    as.getPersistentDataContainer().has(ballKey, PersistentDataType.BYTE) ||
+                    "NeaBallPhysics".equals(as.getCustomName()) ||
+                    "NeaBallVisual".equals(as.getCustomName())) {
+                    as.remove();
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     public boolean isBall(Entity entity) {

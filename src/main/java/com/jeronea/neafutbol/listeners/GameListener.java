@@ -15,6 +15,8 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 
 public class GameListener implements Listener {
@@ -200,6 +202,44 @@ public class GameListener implements Listener {
         if (plugin.getGameManager().isPlayerInGame(event.getPlayer())) {
             if (!event.getPlayer().hasPermission("neafutbol.admin")) {
                 event.setCancelled(true);
+            }
+        }
+    }
+
+    /**
+     * Gestión del ciclo de vida del holograma al cargar chunks para evitar duplicados o estados inconsistentes.
+     */
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        Location holoLoc = plugin.getConfig().getLocation("locations.hologram");
+        if (holoLoc != null && holoLoc.getWorld() != null) {
+            if (event.getWorld().equals(holoLoc.getWorld())
+                    && event.getChunk().getX() == (holoLoc.getBlockX() >> 4)
+                    && event.getChunk().getZ() == (holoLoc.getBlockZ() >> 4)) {
+                if (plugin.getGameManager() != null && plugin.getGameManager().getHologramManager() != null) {
+                    if (!plugin.getGameManager().getHologramManager().areLinesValid()) {
+                        int blue = plugin.getGameManager().getScoreBlue();
+                        int red = plugin.getGameManager().getScoreRed();
+                        plugin.getGameManager().getHologramManager().spawnHologram(blue, red);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Limpieza del holograma en memoria cuando el chunk se descarga.
+     */
+    @EventHandler
+    public void onChunkUnload(ChunkUnloadEvent event) {
+        Location holoLoc = plugin.getConfig().getLocation("locations.hologram");
+        if (holoLoc != null && holoLoc.getWorld() != null) {
+            if (event.getWorld().equals(holoLoc.getWorld())
+                    && event.getChunk().getX() == (holoLoc.getBlockX() >> 4)
+                    && event.getChunk().getZ() == (holoLoc.getBlockZ() >> 4)) {
+                if (plugin.getGameManager() != null && plugin.getGameManager().getHologramManager() != null) {
+                    plugin.getGameManager().getHologramManager().removeHologram();
+                }
             }
         }
     }

@@ -3,20 +3,28 @@ package com.jeronea.neafutbol.game.hologram;
 import com.jeronea.neafutbol.NeaFutbol;
 import java.util.ArrayList;
 import java.util.List;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.persistence.PersistentDataType;
 
 public class HologramManager {
 
     private final NeaFutbol plugin;
     private final List<ArmorStand> hologramLines;
+    private final NamespacedKey holoKey;
     private Location hologramLoc;
 
     public HologramManager(NeaFutbol plugin) {
         this.plugin = plugin;
         this.hologramLines = new ArrayList<>();
+        this.holoKey = new NamespacedKey(plugin, "hologram_line");
     }
 
     public void load() {
@@ -29,11 +37,29 @@ public class HologramManager {
         }
     }
 
+    public void reload() {
+        this.hologramLoc = plugin.getConfig().getLocation("locations.hologram");
+        cleanOrphanedHolograms();
+        if (hologramLoc != null) {
+            int blue = plugin.getGameManager() != null ? plugin.getGameManager().getScoreBlue() : 0;
+            int red = plugin.getGameManager() != null ? plugin.getGameManager().getScoreRed() : 0;
+            spawnHologram(blue, red);
+        } else {
+            removeHologram();
+        }
+    }
+
     public void setLocation(Location loc) {
+        // Limpiar en ubicación previa antes de cambiar la coordenada
+        removeHologram();
         this.hologramLoc = loc;
         plugin.getConfig().set("locations.hologram", loc);
         plugin.saveConfig();
         spawnHologram(0, 0);
+    }
+
+    public void setLocationNull() {
+        this.hologramLoc = null;
     }
 
     public void removeHologram() {
@@ -46,21 +72,66 @@ public class HologramManager {
         cleanOrphanedHolograms();
     }
 
-    private void cleanOrphanedHolograms() {
-        if (hologramLoc == null || hologramLoc.getWorld() == null) return;
+    public int cleanOrphanedHolograms() {
+        int removed = 0;
 
-        // Buscar ArmorStands con nuestro tag cerca de la ubicación para eliminarlos
-        hologramLoc
-            .getWorld()
-            .getNearbyEntities(hologramLoc, 5, 5, 5)
-            .forEach(entity -> {
-                if (
-                    entity instanceof ArmorStand &&
-                    entity.getScoreboardTags().contains("NeaHolo")
-                ) {
-                    entity.remove();
+        // 1. Limpieza global en todos los mundos cargados (evita fugas en cualquier coordenada)
+        for (World world : Bukkit.getWorlds()) {
+            for (ArmorStand as : world.getEntitiesByClass(ArmorStand.class)) {
+                if (isHologramEntity(as)) {
+                    as.remove();
+                    removed++;
                 }
-            });
+            }
+        }
+
+        // 2. Si la ubicación configurada está cargada, comprobar también por proximidad
+        if (hologramLoc != null && hologramLoc.getWorld() != null) {
+            World w = hologramLoc.getWorld();
+            Chunk chunk = hologramLoc.getChunk();
+            if (chunk.isLoaded()) {
+                for (Entity entity : w.getNearbyEntities(hologramLoc, 10, 10, 10)) {
+                    if (entity instanceof ArmorStand) {
+                        ArmorStand as = (ArmorStand) entity;
+                        if (isHologramEntity(as)) {
+                            as.remove();
+                            removed++;
+                        }
+                    }
+                }
+            }
+        }
+
+        return removed;
+    }
+
+    public boolean isHologramEntity(ArmorStand as) {
+        if (as == null) return false;
+        if (as.getScoreboardTags().contains("NeaHolo")) return true;
+        if (as.getPersistentDataContainer().has(holoKey, PersistentDataType.BYTE)) return true;
+
+        // Seguridad extra para limpiar hologramas residuales de versiones anteriores que hayan perdido tags
+        String name = as.getCustomName();
+        if (name != null && as.isMarker() && as.isSmall()) {
+            String stripped = ChatColor.stripColor(name);
+            if (stripped.contains("NeaFutbol") ||
+                (stripped.contains("AZUL") && stripped.contains("ROJO")) ||
+                stripped.startsWith("Tiempo:") ||
+                stripped.contains("█████")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean areLinesValid() {
+        if (hologramLines.size() != 4) return false;
+        for (ArmorStand as : hologramLines) {
+            if (as == null || as.isDead() || !as.isValid()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public void spawnHologram(int scoreBlue, int scoreRed) {
@@ -68,6 +139,11 @@ public class HologramManager {
 
         if (hologramLoc == null) return;
         if (hologramLoc.getWorld() == null) return;
+
+        Chunk chunk = hologramLoc.getChunk();
+        if (!chunk.isLoaded()) {
+            chunk.load();
+        }
 
         Location currentLoc = hologramLoc.clone();
         double lineSpacing = 0.3;
@@ -100,6 +176,12 @@ public class HologramManager {
     }
 
     private void spawnLine(Location loc, String text) {
+        if (loc == null || loc.getWorld() == null) return;
+        Chunk chunk = loc.getChunk();
+        if (!chunk.isLoaded()) {
+            chunk.load();
+        }
+
         ArmorStand as = (ArmorStand) loc
             .getWorld()
             .spawnEntity(loc, EntityType.ARMOR_STAND);
@@ -109,13 +191,16 @@ public class HologramManager {
         as.setCustomNameVisible(true);
         as.setCustomName(text);
         as.setSmall(true);
+        // CRÍTICO: No persistente para que Minecraft NUNCA guarde estos armor stands en disco al descargar chunks
+        as.setPersistent(false);
         as.addScoreboardTag("NeaHolo"); // Tag para identificar y limpiar
+        as.getPersistentDataContainer().set(holoKey, PersistentDataType.BYTE, (byte) 1);
         hologramLines.add(as);
     }
 
     public void updateScore(int blue, int red) {
-        if (hologramLines.size() < 4) {
-            // Si no están todas las líneas, mejor respawnear
+        if (!areLinesValid()) {
+            // Si no están todas las líneas válidas (ej. descarga de chunks o muerte de entidades), respawnear
             spawnHologram(blue, red);
             return;
         }
@@ -133,7 +218,7 @@ public class HologramManager {
     }
 
     public void updateTime(int secondsLeft, int totalSeconds) {
-        if (hologramLines.size() < 4) return;
+        if (!areLinesValid()) return;
 
         // Formato MM:SS
         int minutes = secondsLeft / 60;

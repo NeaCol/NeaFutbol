@@ -543,7 +543,9 @@ public class GameManager {
             broadcast("game-draw", "%score%", String.valueOf(scoreBlue));
         }
 
-        hologramManager.spawnHologram(0, 0);
+        if (!"Forced".equalsIgnoreCase(reason)) {
+            hologramManager.spawnHologram(0, 0);
+        }
 
         Location lobby = plugin.getConfig().getLocation("locations.lobby");
         if (lobby == null && !players.isEmpty()) {

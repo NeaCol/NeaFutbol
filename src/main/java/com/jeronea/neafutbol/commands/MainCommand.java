@@ -39,6 +39,22 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
         String sub = args[0].toLowerCase();
 
+        // Soporte para formato compuesto /neafutbol holo <set|remove|purge> o /neafutbol hologram <set|remove|purge>
+        if (sub.equals("holo") || sub.equals("hologram")) {
+            if (args.length > 1) {
+                String action = args[1].toLowerCase();
+                if (action.equals("set") || action.equals("create")) {
+                    return handleSetHolo(sender);
+                } else if (action.equals("remove") || action.equals("delete") || action.equals("del")) {
+                    return handleRemoveHolo(sender);
+                } else if (action.equals("purge") || action.equals("clean") || action.equals("clear")) {
+                    return handlePurgeHolo(sender);
+                }
+            }
+            sender.sendMessage(ChatColor.YELLOW + "Uso: /neafutbol setholo | /neafutbol removeholo | /neafutbol purgeholo");
+            return true;
+        }
+
         switch (sub) {
             case "join":
                 return handleJoin(sender, args);
@@ -54,9 +70,21 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             case "setarena":
                 return handleSetArena(sender);
             case "setholo":
+            case "sethologram":
+            case "hologramset":
+            case "createholo":
                 return handleSetHolo(sender);
             case "removeholo":
+            case "hologramremove":
+            case "removehologram":
+            case "delholo":
+            case "deleteholo":
+            case "hologramdelete":
                 return handleRemoveHolo(sender);
+            case "purgeholo":
+            case "cleanholo":
+            case "clearholo":
+                return handlePurgeHolo(sender);
             case "forcestart":
                 return handleForceStart(sender);
             case "reload":
@@ -104,6 +132,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             );
             sendHelpLine(sender, "setholo", "Poner holograma");
             sendHelpLine(sender, "removeholo", "Quitar holograma");
+            sendHelpLine(sender, "purgeholo", "Purgar hologramas y balones huérfanos");
             sendHelpLine(sender, "forcestart", "Forzar inicio");
             sendHelpLine(sender, "reload", "Recargar config");
         }
@@ -441,9 +470,28 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         plugin.getGameManager().getHologramManager().removeHologram();
         plugin.getConfig().set("locations.hologram", null);
         plugin.saveConfig();
+        plugin.getGameManager().getHologramManager().setLocationNull();
 
         sender.sendMessage(
             plugin.getConfigManager().getMessage("setup-remove-holo")
+        );
+        return true;
+    }
+
+    private boolean handlePurgeHolo(CommandSender sender) {
+        if (!sender.hasPermission("neafutbol.admin")) {
+            sender.sendMessage(
+                plugin.getConfigManager().getMessage("no-permission")
+            );
+            return true;
+        }
+
+        int removedHolo = plugin.getGameManager().getHologramManager().cleanOrphanedHolograms();
+        int removedBall = plugin.getGameManager().getBallManager().cleanOrphanedBallEntities();
+        sender.sendMessage(
+            ChatColor.GREEN + "Purga completada: " +
+            ChatColor.YELLOW + removedHolo + ChatColor.GREEN + " hologramas y " +
+            ChatColor.YELLOW + removedBall + ChatColor.GREEN + " entidades de balón huérfanas eliminadas."
         );
         return true;
     }
@@ -479,16 +527,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             plugin.getGameManager() != null &&
             plugin.getGameManager().getHologramManager() != null
         ) {
-            // Primero cargamos la ubicación y configuración base
-            plugin.getGameManager().getHologramManager().load();
-
-            // Luego forzamos el re-spawn con los puntos actuales para que el reload no resetee el marcador visual
-            int blue = plugin.getGameManager().getScoreBlue();
-            int red = plugin.getGameManager().getScoreRed();
-            plugin
-                .getGameManager()
-                .getHologramManager()
-                .spawnHologram(blue, red);
+            plugin.getGameManager().getHologramManager().reload();
         }
 
         sender.sendMessage(plugin.getConfigManager().getMessage("reload"));
@@ -515,6 +554,8 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                 completions.add("setarena");
                 completions.add("setholo");
                 completions.add("removeholo");
+                completions.add("purgeholo");
+                completions.add("holo");
                 completions.add("forcestart");
                 completions.add("reload");
             }
@@ -524,6 +565,12 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("join")) {
                 return null; // Player list
+            }
+            if (
+                (args[0].equalsIgnoreCase("holo") || args[0].equalsIgnoreCase("hologram")) &&
+                sender.hasPermission("neafutbol.admin")
+            ) {
+                return filter(Arrays.asList("set", "remove", "purge"), args[1]);
             }
             if (
                 args[0].equalsIgnoreCase("setspawn") &&
