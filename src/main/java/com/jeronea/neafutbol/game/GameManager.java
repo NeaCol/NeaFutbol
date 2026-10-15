@@ -3,6 +3,7 @@ package com.jeronea.neafutbol.game;
 import com.jeronea.neafutbol.NeaFutbol;
 import com.jeronea.neafutbol.game.hologram.HologramManager;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -84,6 +85,60 @@ public class GameManager {
 
     public boolean isPlayerInGame(Player player) {
         return players.contains(player.getUniqueId());
+    }
+
+    public int getTimer() {
+        return timer;
+    }
+
+    public int getTotalGameTime() {
+        return totalGameTime;
+    }
+
+    public int getPlayerCount() {
+        return players.size();
+    }
+
+    public int getMaxPlayers() {
+        return plugin.getConfig().getInt("game.max-players", 4);
+    }
+
+    public String getFormattedTime() {
+        if (state != GameState.PLAYING && state != GameState.GOAL_PAUSE && state != GameState.THROW_IN) {
+            return "--:--";
+        }
+        int minutes = timer / 60;
+        int seconds = timer % 60;
+        return String.format("%02d:%02d", Math.max(0, minutes), Math.max(0, seconds));
+    }
+
+    public String getStateFormatted() {
+        switch (state) {
+            case WAITING:
+                return "Esperando";
+            case STARTING:
+                return "Iniciando";
+            case PLAYING:
+                return "En juego";
+            case GOAL_PAUSE:
+                return "Gol";
+            case THROW_IN:
+                return "Saque de banda";
+            default:
+                return state.name();
+        }
+    }
+
+    public List<UUID> getPlayers() {
+        return Collections.unmodifiableList(players);
+    }
+
+    public List<UUID> getTeamBluePlayers() {
+        return Collections.unmodifiableList(teamBluePlayers);
+    }
+
+    public List<UUID> getTeamRedPlayers() {
+        return Collections.unmodifiableList(teamRedPlayers);
     }
 
     // Helper for GameListener to block movement
@@ -357,6 +412,17 @@ public class GameManager {
         if (scoringTeam.equalsIgnoreCase("Azul")) scoreBlue++;
         else scoreRed++;
 
+        if (lastTouchPlayer != null) {
+            Player scorer = Bukkit.getPlayer(lastTouchPlayer);
+            String scorerTeam = scorer != null ? getPlayerTeamName(scorer) : null;
+            if (scorerTeam != null && scorerTeam.equalsIgnoreCase(scoringTeam)) {
+                plugin.getStatsManager().addGoal(lastTouchPlayer, scorer != null ? scorer.getName() : null);
+                if (scorer != null) {
+                    broadcast("goal-scored", "%player%", scorer.getName());
+                }
+            }
+        }
+
         hologramManager.updateScore(scoreBlue, scoreRed);
         ballManager.removeBall();
 
@@ -541,6 +607,24 @@ public class GameManager {
             );
         } else {
             broadcast("game-draw", "%score%", String.valueOf(scoreBlue));
+        }
+
+        if (!"Forced".equalsIgnoreCase(reason) && !"Setup missing".equalsIgnoreCase(reason)) {
+            if (scoreBlue > scoreRed) {
+                for (UUID uuid : teamBluePlayers) {
+                    Player p = Bukkit.getPlayer(uuid);
+                    plugin.getStatsManager().addWin(uuid, p != null ? p.getName() : null);
+                }
+            } else if (scoreRed > scoreBlue) {
+                for (UUID uuid : teamRedPlayers) {
+                    Player p = Bukkit.getPlayer(uuid);
+                    plugin.getStatsManager().addWin(uuid, p != null ? p.getName() : null);
+                }
+            }
+            for (UUID uuid : players) {
+                Player p = Bukkit.getPlayer(uuid);
+                plugin.getStatsManager().addMatch(uuid, p != null ? p.getName() : null);
+            }
         }
 
         if (!"Forced".equalsIgnoreCase(reason)) {

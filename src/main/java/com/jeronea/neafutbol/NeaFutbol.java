@@ -3,6 +3,8 @@ package com.jeronea.neafutbol;
 import com.jeronea.neafutbol.commands.MainCommand;
 import com.jeronea.neafutbol.game.GameManager;
 import com.jeronea.neafutbol.listeners.GameListener;
+import com.jeronea.neafutbol.papi.NeaFutbolExpansion;
+import com.jeronea.neafutbol.stats.StatsManager;
 import com.jeronea.neafutbol.utils.ConfigManager;
 import com.jeronea.neafutbol.utils.selection.GoalSelectionManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -11,6 +13,7 @@ public class NeaFutbol extends JavaPlugin {
 
     private static NeaFutbol instance;
     private ConfigManager configManager;
+    private StatsManager statsManager;
     private GameManager gameManager;
     private GoalSelectionManager goalSelectionManager;
 
@@ -24,6 +27,9 @@ public class NeaFutbol extends JavaPlugin {
         // Inicializar gestor de configuración y lenguaje
         this.configManager = new ConfigManager(this);
         this.configManager.loadLang();
+
+        // Inicializar gestor de estadísticas
+        this.statsManager = new StatsManager(this);
 
         // Inicializar gestor de selección (Wand)
         this.goalSelectionManager = new GoalSelectionManager(this);
@@ -41,6 +47,12 @@ public class NeaFutbol extends JavaPlugin {
             .getPluginManager()
             .registerEvents(new GameListener(this), this);
 
+        // Integración opcional con PlaceholderAPI
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new NeaFutbolExpansion(this).register();
+            getLogger().info("¡PlaceholderAPI detectado e integrado con éxito!");
+        }
+
         getLogger().info(
             "NeaFutbol v" +
                 getDescription().getVersion() +
@@ -50,6 +62,11 @@ public class NeaFutbol extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // Guardar estadísticas
+        if (statsManager != null) {
+            statsManager.save();
+        }
+
         // Limpiar el juego si está activo al apagar
         if (gameManager != null) {
             gameManager.stopGameForced();
@@ -63,6 +80,10 @@ public class NeaFutbol extends JavaPlugin {
 
     public ConfigManager getConfigManager() {
         return configManager;
+    }
+
+    public StatsManager getStatsManager() {
+        return statsManager;
     }
 
     public GameManager getGameManager() {

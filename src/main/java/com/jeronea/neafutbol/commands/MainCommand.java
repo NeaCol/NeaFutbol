@@ -521,6 +521,9 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
         plugin.reloadConfig();
         plugin.getConfigManager().reload();
+        if (plugin.getStatsManager() != null) {
+            plugin.getStatsManager().load();
+        }
 
         // Recargar el holograma para aplicar cambios de configuración/idioma inmediatamente
         if (
