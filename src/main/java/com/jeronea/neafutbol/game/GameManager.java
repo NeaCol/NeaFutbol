@@ -4,7 +4,9 @@ import com.jeronea.neafutbol.NeaFutbol;
 import com.jeronea.neafutbol.game.hologram.HologramManager;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -33,7 +35,7 @@ public class GameManager {
     private final NeaFutbol plugin;
     private final BallManager ballManager;
     private final HologramManager hologramManager;
-    private final List<UUID> players;
+    private final Set<UUID> players;
     private GameState state;
 
     private BukkitTask gameLoopTask;
@@ -45,22 +47,44 @@ public class GameManager {
     private int scoreBlue;
     private int scoreRed;
 
-    // Team Tracking
-    private final List<UUID> teamBluePlayers = new ArrayList<>();
-    private final List<UUID> teamRedPlayers = new ArrayList<>();
+    // Team Tracking con Set para búsquedas O(1) en PlayerMoveEvent
+    private final Set<UUID> teamBluePlayers = new LinkedHashSet<>();
+    private final Set<UUID> teamRedPlayers = new LinkedHashSet<>();
     private UUID lastTouchPlayer;
     private UUID throwInPlayer;
     // Bounds check cooldown to prevent loops
     private long boundsCooldown = 0;
 
+    // BoundingBoxes en caché para no hacer cientos de lecturas YAML por segundo
+    private BoundingBox cachedGoal1;
+    private BoundingBox cachedGoal2;
+    private BoundingBox cachedField;
+
     public GameManager(NeaFutbol plugin) {
         this.plugin = plugin;
         this.ballManager = new BallManager(plugin);
         this.hologramManager = new HologramManager(plugin);
-        this.players = new ArrayList<>();
+        this.players = new LinkedHashSet<>();
         this.state = GameState.WAITING;
 
+        loadCachedBoxes();
         this.hologramManager.load();
+    }
+
+    public void reload() {
+        loadCachedBoxes();
+        if (ballManager != null) {
+            ballManager.reloadConfigValues();
+        }
+        if (hologramManager != null) {
+            hologramManager.reload();
+        }
+    }
+
+    public void loadCachedBoxes() {
+        this.cachedGoal1 = getBox("locations.goal1");
+        this.cachedGoal2 = getBox("locations.goal2");
+        this.cachedField = getBox("locations.field");
     }
 
     public BallManager getBallManager() {
@@ -84,7 +108,7 @@ public class GameManager {
     }
 
     public boolean isPlayerInGame(Player player) {
-        return players.contains(player.getUniqueId());
+        return player != null && players.contains(player.getUniqueId());
     }
 
     public int getTimer() {
@@ -130,15 +154,15 @@ public class GameManager {
     }
 
     public List<UUID> getPlayers() {
-        return Collections.unmodifiableList(players);
+        return Collections.unmodifiableList(new ArrayList<>(players));
     }
 
     public List<UUID> getTeamBluePlayers() {
-        return Collections.unmodifiableList(teamBluePlayers);
+        return Collections.unmodifiableList(new ArrayList<>(teamBluePlayers));
     }
 
     public List<UUID> getTeamRedPlayers() {
-        return Collections.unmodifiableList(teamRedPlayers);
+        return Collections.unmodifiableList(new ArrayList<>(teamRedPlayers));
     }
 
     // Helper for GameListener to block movement
@@ -162,8 +186,10 @@ public class GameManager {
     }
 
     public String getPlayerTeamName(Player player) {
-        if (teamBluePlayers.contains(player.getUniqueId())) return "Azul";
-        if (teamRedPlayers.contains(player.getUniqueId())) return "Rojo";
+        if (player == null) return "None";
+        UUID uuid = player.getUniqueId();
+        if (teamBluePlayers.contains(uuid)) return "Azul";
+        if (teamRedPlayers.contains(uuid)) return "Rojo";
         return "None";
     }
 
@@ -314,6 +340,8 @@ public class GameManager {
             return;
         }
 
+        loadCachedBoxes();
+
         state = GameState.PLAYING;
         scoreBlue = 0;
         scoreRed = 0;
@@ -323,8 +351,9 @@ public class GameManager {
         // Distribute teams
         teamBluePlayers.clear();
         teamRedPlayers.clear();
-        for (int i = 0; i < players.size(); i++) {
-            Player p = Bukkit.getPlayer(players.get(i));
+        int i = 0;
+        for (UUID uuid : players) {
+            Player p = Bukkit.getPlayer(uuid);
             if (p == null) continue;
 
             p.getInventory().clear();
@@ -346,6 +375,7 @@ public class GameManager {
                     applyTeamArmor(p, Color.RED);
                 }
             }
+            i++;
         }
 
         ballManager.spawnBall(ballLoc);
@@ -381,15 +411,12 @@ public class GameManager {
     private void checkGoals() {
         if (!ballManager.isBallActive()) return;
 
-        // Use precise entity location
         Location ballLoc = ballManager.getBall().getLocation();
-        BoundingBox goal1 = getBox("locations.goal1");
-        BoundingBox goal2 = getBox("locations.goal2");
 
-        // Check intersection
-        if (goal1 != null && isInside(ballLoc, goal1)) {
+        // Comprobación directa contra cachés en memoria
+        if (cachedGoal1 != null && isInside(ballLoc, cachedGoal1)) {
             handleGoal("Rojo");
-        } else if (goal2 != null && isInside(ballLoc, goal2)) {
+        } else if (cachedGoal2 != null && isInside(ballLoc, cachedGoal2)) {
             handleGoal("Azul");
         }
     }
@@ -426,7 +453,7 @@ public class GameManager {
         hologramManager.updateScore(scoreBlue, scoreRed);
         ballManager.removeBall();
 
-        // 1 second delay then reset positions
+        // 2 segundos delay y luego reanudar
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -468,19 +495,17 @@ public class GameManager {
         // Cooldown check
         if (System.currentTimeMillis() < boundsCooldown) return;
 
-        BoundingBox field = getBox("locations.field");
-        if (field == null) return;
+        if (cachedField == null) return;
 
-        // Check if ball is OUTSIDE field (and above min Y)
         Location ballLoc = ballManager.getBall().getLocation();
 
         // Strict containment check for X and Z
         boolean inX =
-            ballLoc.getX() >= field.getMinX() &&
-            ballLoc.getX() <= field.getMaxX();
+            ballLoc.getX() >= cachedField.getMinX() &&
+            ballLoc.getX() <= cachedField.getMaxX();
         boolean inZ =
-            ballLoc.getZ() >= field.getMinZ() &&
-            ballLoc.getZ() <= field.getMaxZ();
+            ballLoc.getZ() >= cachedField.getMinZ() &&
+            ballLoc.getZ() <= cachedField.getMaxZ();
 
         // If outside
         if (!inX || !inZ) {
@@ -488,11 +513,29 @@ public class GameManager {
         }
     }
 
+    private Location clampInsideField(Location loc, BoundingBox field) {
+        Location clamped = loc.clone();
+        double margin = 1.0;
+        double minX = Math.min(field.getMinX(), field.getMaxX()) + margin;
+        double maxX = Math.max(field.getMinX(), field.getMaxX()) - margin;
+        double minZ = Math.min(field.getMinZ(), field.getMaxZ()) + margin;
+        double maxZ = Math.max(field.getMinZ(), field.getMaxZ()) - margin;
+
+        clamped.setX(Math.max(minX, Math.min(maxX, loc.getX())));
+        clamped.setZ(Math.max(minZ, Math.min(maxZ, loc.getZ())));
+        return clamped;
+    }
+
     private void handleThrowIn(Location ballLoc) {
         state = GameState.THROW_IN;
+        // Evita re-trigger inmediato con un cooldown preventivo de 4 segundos
+        boundsCooldown = System.currentTimeMillis() + 4000;
+
         ballManager.removeBall(); // Stop ball
 
-        ballManager.spawnBall(ballLoc);
+        // Clampear la pelota dentro de la cancha en la línea de banda para evitar bucles fuera de límites
+        Location throwInBallLoc = (cachedField != null) ? clampInsideField(ballLoc, cachedField) : ballLoc;
+        ballManager.spawnBall(throwInBallLoc);
 
         // Determine team to throw
         boolean blueLastTouch =
@@ -500,7 +543,7 @@ public class GameManager {
             teamBluePlayers.contains(lastTouchPlayer);
 
         // If blue touched last, Red throws.
-        List<UUID> throwingTeam = blueLastTouch
+        Set<UUID> throwingTeam = blueLastTouch
             ? teamRedPlayers
             : teamBluePlayers;
         String throwingTeamName = blueLastTouch ? "ROJO" : "AZUL";
@@ -514,7 +557,7 @@ public class GameManager {
         for (UUID uuid : throwingTeam) {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null) {
-                double d = p.getLocation().distance(ballLoc);
+                double d = p.getLocation().distance(throwInBallLoc);
                 if (d < minDist) {
                     minDist = d;
                     nearest = p;
@@ -531,13 +574,13 @@ public class GameManager {
         throwInPlayer = nearest.getUniqueId();
 
         // Teleport thrower to ball
-        Location throwLoc = ballLoc.clone();
+        Location throwLoc = throwInBallLoc.clone();
         throwLoc.setDirection(
-            ballLoc
+            throwInBallLoc
                 .getWorld()
                 .getSpawnLocation()
                 .toVector()
-                .subtract(ballLoc.toVector())
+                .subtract(throwInBallLoc.toVector())
         );
         nearest.teleport(throwLoc);
         nearest.sendMessage(
@@ -575,8 +618,8 @@ public class GameManager {
         state = GameState.PLAYING;
         throwInPlayer = null;
 
-        // Add 2 seconds cooldown before checking bounds again
-        boundsCooldown = System.currentTimeMillis() + 2000;
+        // Cooldown de 2.5 segundos para evitar re-detecciones accidentales
+        boundsCooldown = System.currentTimeMillis() + 2500;
 
         broadcast("game-resumed");
     }
@@ -633,7 +676,7 @@ public class GameManager {
 
         Location lobby = plugin.getConfig().getLocation("locations.lobby");
         if (lobby == null && !players.isEmpty()) {
-            Player first = Bukkit.getPlayer(players.get(0));
+            Player first = Bukkit.getPlayer(players.iterator().next());
             if (first != null) lobby = first.getWorld().getSpawnLocation();
         }
 
@@ -680,7 +723,6 @@ public class GameManager {
         double minZ = plugin.getConfig().getDouble(path + ".minZ");
         double maxX = plugin.getConfig().getDouble(path + ".maxX");
         double maxZ = plugin.getConfig().getDouble(path + ".maxZ");
-        // We use infinite Y for goals logic, and full box for field
         return new BoundingBox(minX, 0, minZ, maxX, 0, maxZ);
     }
 
@@ -712,14 +754,14 @@ public class GameManager {
     }
 
     private boolean isInside(Location loc, BoundingBox box) {
-        // Tolerant X/Z check
         double tolerance = 0.5;
-        boolean inX =
-            loc.getX() >= (box.getMinX() - tolerance) &&
-            loc.getX() <= (box.getMaxX() + tolerance);
-        boolean inZ =
-            loc.getZ() >= (box.getMinZ() - tolerance) &&
-            loc.getZ() <= (box.getMaxZ() + tolerance);
+        double minX = Math.min(box.getMinX(), box.getMaxX());
+        double maxX = Math.max(box.getMinX(), box.getMaxX());
+        double minZ = Math.min(box.getMinZ(), box.getMaxZ());
+        double maxZ = Math.max(box.getMinZ(), box.getMaxZ());
+
+        boolean inX = loc.getX() >= (minX - tolerance) && loc.getX() <= (maxX + tolerance);
+        boolean inZ = loc.getZ() >= (minZ - tolerance) && loc.getZ() <= (maxZ + tolerance);
         return inX && inZ;
     }
 }

@@ -33,12 +33,45 @@ public class StatsManager {
         statsConfig = YamlConfiguration.loadConfiguration(statsFile);
     }
 
+    private final Object saveLock = new Object();
+    private boolean isSaving = false;
+    private boolean pendingSave = false;
+
     public void save() {
         if (statsConfig == null || statsFile == null) return;
-        try {
-            statsConfig.save(statsFile);
-        } catch (IOException e) {
-            plugin.getLogger().warning("No se pudo guardar stats.yml: " + e.getMessage());
+        synchronized (saveLock) {
+            if (isSaving) {
+                pendingSave = true;
+                return;
+            }
+            isSaving = true;
+        }
+
+        org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            synchronized (saveLock) {
+                try {
+                    statsConfig.save(statsFile);
+                } catch (IOException e) {
+                    plugin.getLogger().warning("No se pudo guardar stats.yml: " + e.getMessage());
+                } finally {
+                    isSaving = false;
+                    if (pendingSave) {
+                        pendingSave = false;
+                        save();
+                    }
+                }
+            }
+        });
+    }
+
+    public void saveSync() {
+        if (statsConfig == null || statsFile == null) return;
+        synchronized (saveLock) {
+            try {
+                statsConfig.save(statsFile);
+            } catch (IOException e) {
+                plugin.getLogger().warning("No se pudo guardar stats.yml: " + e.getMessage());
+            }
         }
     }
 

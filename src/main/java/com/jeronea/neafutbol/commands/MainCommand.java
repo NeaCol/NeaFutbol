@@ -385,6 +385,9 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         plugin.getConfig().set(pathPrefix + ".maxZ", box.getMaxZ());
 
         plugin.saveConfig();
+        if (plugin.getGameManager() != null) {
+            plugin.getGameManager().loadCachedBoxes();
+        }
 
         String msg = plugin.getConfigManager().getMessage("setup-set-goal");
         sender.sendMessage(msg.replace("%team%", type));
@@ -426,6 +429,9 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         plugin.getConfig().set(pathPrefix + ".maxZ", box.getMaxZ());
 
         plugin.saveConfig();
+        if (plugin.getGameManager() != null) {
+            plugin.getGameManager().loadCachedBoxes();
+        }
 
         sender.sendMessage(
             plugin.getConfigManager().getMessage("setup-set-arena")
@@ -525,12 +531,9 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             plugin.getStatsManager().load();
         }
 
-        // Recargar el holograma para aplicar cambios de configuración/idioma inmediatamente
-        if (
-            plugin.getGameManager() != null &&
-            plugin.getGameManager().getHologramManager() != null
-        ) {
-            plugin.getGameManager().getHologramManager().reload();
+        // Recargar GameManager y sus subsistemas para aplicar cambios de configuración/idioma/cajas inmediatamente
+        if (plugin.getGameManager() != null) {
+            plugin.getGameManager().reload();
         }
 
         sender.sendMessage(plugin.getConfigManager().getMessage("reload"));

@@ -62,9 +62,9 @@ public class NeaFutbol extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Guardar estadísticas
+        // Guardar estadísticas de forma síncrona al apagar
         if (statsManager != null) {
-            statsManager.save();
+            statsManager.saveSync();
         }
 
         // Limpiar el juego si está activo al apagar

@@ -69,7 +69,6 @@ public class HologramManager {
             }
         }
         hologramLines.clear();
-        cleanOrphanedHolograms();
     }
 
     public int cleanOrphanedHolograms() {
