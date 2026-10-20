@@ -3,9 +3,6 @@ description: Sugiere una nueva mecánica o mejora para NeaFutbol
 title: "[FEATURE]: "
 labels: ["enhancement"]
 body:
-  - type: markdown
-    attributes:
-      value: ¡Gracias por aportar ideas para mejorar NeaFutbol!
   - type: textarea
     id: idea
     attributes:

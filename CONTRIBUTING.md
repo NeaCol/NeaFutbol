@@ -1,8 +1,6 @@
-# Contribución a NeaFutbol
+# Guía de Contribución
 
-¡Gracias por tu interés en contribuir a **NeaFutbol**!
-
-NeaFutbol es un plugin de minijuego de fútbol optimizado para servidores de Minecraft (Paper/Spigot 1.21).
+Guía para compilar y contribuir cambios a **NeaFutbol** (Paper/Spigot 1.21).
 
 ---
 

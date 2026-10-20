@@ -3,9 +3,6 @@ description: Reporta un fallo o comportamiento inesperado en NeaFutbol
 title: "[BUG]: "
 labels: ["bug"]
 body:
-  - type: markdown
-    attributes:
-      value: ¡Gracias por tomarte el tiempo de reportar un error en NeaFutbol!
   - type: input
     id: version
     attributes:
