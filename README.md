@@ -1,4 +1,17 @@
-# NeaFutbol
+# ⚽ NeaFutbol
+
+<div align="center">
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Java 17+](https://img.shields.io/badge/Java-17%20%7C%2021-ED8B00?logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
+[![Minecraft Paper](https://img.shields.io/badge/Platform-Paper%20%7C%20Purpur%201.21%2B-1e87f0)](https://papermc.io/)
+[![GitHub](https://img.shields.io/badge/GitHub-NeaCol%2FNeaFutbol-black?logo=github)](https://github.com/NeaCol/NeaFutbol)
+
+**Plugin de fútbol de alto rendimiento con físicas personalizadas, detección de goles y marcadores holográficos para Minecraft (Paper / Spigot 1.21+).**
+
+</div>
+
+---
 
 **NeaFutbol** es un plugin de fútbol completo y optimizado para servidores de Minecraft (Spigot/Paper 1.21). Diseñado para lobbies y minijuegos, permite a los jugadores disfrutar de partidos de fútbol con físicas personalizadas, sistemas de equipos y marcadores holográficos.
 
