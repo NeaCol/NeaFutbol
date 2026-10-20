@@ -1,0 +1,35 @@
+name: Reporte de Error (Bug Report)
+description: Reporta un fallo o comportamiento inesperado en NeaFutbol
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: ¡Gracias por tomarte el tiempo de reportar un error en NeaFutbol!
+  - type: input
+    id: version
+    attributes:
+      label: Versión del Servidor y NeaFutbol
+      placeholder: "e.g. Paper 1.21.1 build 120, NeaFutbol v1.1.7"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del Problema
+      description: Explica de forma clara qué ocurrió.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para Reproducir
+      description: ¿Cómo podemos reproducir el error?
+      placeholder: "1. Ejecutar /nf join\n2. Chutar el balón contra la portería\n3. Ver el log del servidor"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Consola / Logs del Servidor
+      render: shell
