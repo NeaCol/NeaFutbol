@@ -20,9 +20,9 @@ Guía para compilar y contribuir cambios a **NeaFutbol** (Paper/Spigot 1.21).
 
 ## Estándares de Código
 
-- Respeta la arquitectura basada en listeners, managers y utilidades asíncronas para cálculos de físicas.
-- Mantén el rendimiento: evita escaneos de entidades en el hilo principal (`Main Thread`).
-- Realiza commits descriptivos usando [Conventional Commits](https://www.conventionalcommits.org/):
+- Seguir la arquitectura basada en listeners, managers y utilidades asíncronas para cálculos de físicas.
+- Rendimiento: evitar escaneos de entidades en el hilo principal (`Main Thread`).
+- Utilizar commits descriptivos basados en [Conventional Commits](https://www.conventionalcommits.org/):
   - `feat: ...`
   - `fix: ...`
   - `docs: ...`

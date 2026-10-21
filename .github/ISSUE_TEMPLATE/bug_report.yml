@@ -1,5 +1,5 @@
 name: Reporte de Error (Bug Report)
-description: Reporta un fallo o comportamiento inesperado en NeaFutbol
+description: Reportar un fallo o comportamiento anómalo en NeaFutbol.
 title: "[BUG]: "
 labels: ["bug"]
 body:
@@ -14,14 +14,14 @@ body:
     id: description
     attributes:
       label: Descripción del Problema
-      description: Explica de forma clara qué ocurrió.
+      description: Descripción detallada del comportamiento anómalo y resultado esperado.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
       label: Pasos para Reproducir
-      description: ¿Cómo podemos reproducir el error?
+      description: Secuencia exacta de pasos para reproducir el fallo.
       placeholder: "1. Ejecutar /nf join\n2. Chutar el balón contra la portería\n3. Ver el log del servidor"
     validations:
       required: true

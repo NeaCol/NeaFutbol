@@ -1,5 +1,5 @@
 name: Solicitud de Funcionalidad (Feature Request)
-description: Sugiere una nueva mecánica o mejora para NeaFutbol
+description: Propuesta de nueva mecánica o mejora técnica para NeaFutbol.
 title: "[FEATURE]: "
 labels: ["enhancement"]
 body:
@@ -7,11 +7,11 @@ body:
     id: idea
     attributes:
       label: Descripción de la Funcionalidad
-      description: ¿Qué nueva característica te gustaría ver?
+      description: Descripción técnica de la funcionalidad o ajuste propuesto.
     validations:
       required: true
   - type: textarea
     id: gameplay
     attributes:
       label: Impacto en el Juego / Mecánica
-      description: ¿Cómo mejorará la experiencia de los jugadores o administradores?
+      description: Justificación técnica y comportamiento esperado en el juego.
